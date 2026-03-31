@@ -1,0 +1,167 @@
+export const B = {
+  bg:          '#050505',
+  bg2:         '#0C0C0C',
+  bg3:         '#111111',
+  card:        '#141414',
+  accent:      '#FF4800',
+  accentHover: '#FF5E1A',
+  text:        '#F5F5F5',
+  text2:       '#A0A0A0',
+  muted:       '#555555',
+  border:      '#1E1E1E',
+  borderL:     '#2A2A2A',
+}
+
+export const SLIDE_TYPES = {
+  hook: {
+    icon: '🎯', label: 'Hook',
+    desc: 'Badge + título + línea naranjo',
+    defaultFields: {
+      badge: 'Tendencia 2025',
+      title: 'La IA va a crear más millonarios que internet.',
+      accentLine: 'Pero no como piensas.',
+      body: '',
+      icon: '',
+      iconPos: '',
+      iconOpacity: '',
+      images: [],
+      bgOverride: '',
+    },
+  },
+  content: {
+    icon: '📄', label: 'Contenido',
+    desc: 'Número + label + título + cuerpo',
+    defaultFields: {
+      slideNumber: '02',
+      label: 'EL CONCEPTO',
+      title: 'Escribe tu punto principal aquí.',
+      showDivider: true,
+      body: 'Explica con una o dos líneas. Directo, sin relleno.',
+      brandIcon: '',
+      icon: '',
+      iconPos: '',
+      iconOpacity: '',
+      images: [],
+      bgOverride: '',
+    },
+  },
+  bigNumber: {
+    icon: '💰', label: 'Número Grande',
+    desc: 'Cifra gigante naranjo + título',
+    defaultFields: {
+      number: '$5K',
+      title: 'en 30 días con un solo cliente.',
+      body: 'Sin equipo. Sin inversión. Solo el sistema correcto.',
+      icon: '',
+      iconPos: '',
+      iconOpacity: '',
+      images: [],
+      bgOverride: '',
+    },
+  },
+  list: {
+    icon: '📋', label: 'Lista',
+    desc: 'Título + card con items',
+    defaultFields: {
+      title: 'Lo que necesitas para empezar:',
+      cardTitle: 'El stack completo:',
+      items: ['Lovable — frontend en horas', 'Supabase — base de datos lista', 'Make — automatizaciones sin código'],
+      icon: '',
+      iconPos: '',
+      iconOpacity: '',
+      images: [],
+      bgOverride: '',
+    },
+  },
+  beforeAfter: {
+    icon: '⚡', label: 'Antes / Después',
+    desc: 'Comparación visual en 2 columnas',
+    defaultFields: {
+      beforeAmount: '$300', beforePeriod: '/mes', beforeLabel: 'Freelance sin sistema',
+      afterAmount:  '$5K',  afterPeriod:  '/mes', afterLabel:  '1 cliente, 1 mes, 1 sistema',
+      timeBadge: '1 mes',
+      body: 'No cambié de industria. Cambié el producto que vendía.',
+      icon: '',
+      iconPos: '',
+      iconOpacity: '',
+      images: [],
+      bgOverride: '',
+    },
+  },
+  cta: {
+    icon: '🚀', label: 'CTA',
+    desc: 'Marca + título + botón',
+    defaultFields: {
+      brandWhite: 'Build It.',
+      brandOrange: 'Sell It.',
+      title: 'Descarga mi guía gratis y construye tu primer sistema con IA.',
+      body: 'El mismo método que usé para pasar de $300 a $5K.',
+      buttonText: '▶ LINK EN BIO',
+      icon: '',
+      iconPos: '',
+      iconOpacity: '',
+      images: [],
+      bgOverride: '',
+    },
+  },
+  quote: {
+    icon: '💬', label: 'Cita / Testimonio',
+    desc: 'Frase grande + autor + avatar',
+    defaultFields: {
+      quote: 'Este sistema me ahorró 12 horas a la semana.',
+      author: 'Juan Pérez',
+      role: 'CEO, Startup.com',
+      avatar: '',
+      icon: '',
+      iconPos: '',
+      iconOpacity: '',
+      images: [],
+      bgOverride: '',
+    },
+  },
+  timeline: {
+    icon: '📍', label: 'Timeline',
+    desc: 'Pasos o hitos con línea de progreso',
+    defaultFields: {
+      title: 'El proceso paso a paso:',
+      steps: [
+        { label: 'Semana 1', text: 'Definir el problema y el cliente ideal' },
+        { label: 'Semana 2', text: 'Construir el MVP con Lovable + Supabase' },
+        { label: 'Semana 3', text: 'Lanzar, iterar y cerrar el primer cliente' },
+      ],
+      icon: '',
+      iconPos: '',
+      iconOpacity: '',
+      images: [],
+      bgOverride: '',
+    },
+  },
+  pricing: {
+    icon: '💎', label: 'Pricing',
+    desc: 'Comparación de planes o precios',
+    defaultFields: {
+      title: 'Elige tu plan:',
+      plans: [
+        { name: 'Básico', price: '$49', period: '/mes', features: ['5 proyectos', 'Soporte email'] },
+        { name: 'Pro', price: '$149', period: '/mes', features: ['Proyectos ilimitados', 'Soporte prioritario', 'Acceso comunidad'], highlighted: true },
+      ],
+      icon: '',
+      iconPos: '',
+      iconOpacity: '',
+      images: [],
+      bgOverride: '',
+    },
+  },
+}
+
+let _uid = 0
+export const uid = () => `s${++_uid}`
+export const makeSlide = (type) => ({ id: uid(), type, fields: { ...SLIDE_TYPES[type].defaultFields } })
+
+export const makeCarousel = (name = 'Nuevo Carrusel') => ({
+  id: uid(),
+  name,
+  createdAt: Date.now(),
+  updatedAt: Date.now(),
+  slides: [makeSlide('hook')],
+})
