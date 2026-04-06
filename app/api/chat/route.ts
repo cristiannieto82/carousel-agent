@@ -3,20 +3,11 @@ import { buildSystemPrompt } from '@/lib/system-prompt'
 import { executeToolCall, anthropicToolDefs, registerCustomBrand } from '@/lib/tools'
 import { routeModel } from '@/lib/model-router'
 import { filterTools } from '@/lib/tool-filter'
-import { compressHistory } from '@/lib/context-compressor'
 import { calculateStepCost, aggregateMetrics, type StepMetrics } from '@/lib/cost-tracker'
 
 export const maxDuration = 120
 
 const client = new Anthropic()
-
-// Server-side conversation store (per session)
-const sessions = new Map<string, any[]>()
-
-function getSession(id: string): any[] {
-  if (!sessions.has(id)) sessions.set(id, [])
-  return sessions.get(id)!
-}
 
 /**
  * Sanitize history so every assistant tool_use has a matching tool_result immediately after.
@@ -65,8 +56,7 @@ export interface AgentStep {
 
 export async function POST(req: Request) {
   try {
-    const { message, sessionId = 'default', brandKit } = await req.json()
-    const history = getSession(sessionId)
+    const { message, history: clientHistory, brandKit } = await req.json()
     const agentSteps: AgentStep[] = []
     const stepMetrics: StepMetrics[] = []
 
@@ -107,23 +97,17 @@ export async function POST(req: Request) {
       detail: route.reason,
     })
 
-    // ── Step 3: Sanitize & compress history ──
+    // ── Step 3: Build messages from client history ──
+    const messages: any[] = (clientHistory || []).map((m: any) => ({
+      role: m.role,
+      content: m.content,
+    }))
+    messages.push({ role: 'user', content: message })
+
     // Fix any corrupted history (orphaned tool_use without tool_result)
-    const sanitized = sanitizeHistory(history)
-    history.length = 0
-    history.push(...sanitized)
+    const compressedHistory = sanitizeHistory(messages)
 
-    history.push({ role: 'user', content: message })
-    const { compressed: compressedHistory, wasCompressed } = await compressHistory(history, client)
-    if (wasCompressed) {
-      agentSteps.push({
-        type: 'compress',
-        label: 'Historial comprimido',
-        detail: `${history.length} msgs → ${compressedHistory.length} msgs`,
-      })
-    }
-
-    console.log(`[agent] Session: ${sessionId} | Model: ${route.model} | Tools: ${sent}/${total} | User: ${message.slice(0, 80)}`)
+    console.log(`[agent] Model: ${route.model} | Tools: ${sent}/${total} | User: ${message.slice(0, 80)}`)
 
     const allToolResults: any[] = []
 
@@ -187,7 +171,6 @@ export async function POST(req: Request) {
 
       // Add assistant response to conversation history
       const assistantContent = response.content
-      history.push({ role: 'assistant', content: assistantContent })
       compressedHistory.push({ role: 'assistant', content: assistantContent })
 
       const textBlocks = response.content.filter((b) => b.type === 'text') as any[]
@@ -224,7 +207,6 @@ export async function POST(req: Request) {
 
       // Add tool results to conversation history
       const toolResultMsg = { role: 'user', content: toolResults }
-      history.push(toolResultMsg)
       compressedHistory.push(toolResultMsg)
 
       // Always continue the loop so the model processes tool results.
@@ -244,11 +226,4 @@ export async function POST(req: Request) {
     console.error('[agent] Full error:', JSON.stringify(err, null, 2).slice(0, 500))
     return Response.json({ error: err.message || 'Error desconocido' }, { status: 500 })
   }
-}
-
-// Clear session
-export async function DELETE(req: Request) {
-  const { sessionId = 'default' } = await req.json().catch(() => ({}))
-  sessions.delete(sessionId)
-  return Response.json({ cleared: true })
 }

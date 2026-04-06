@@ -904,8 +904,15 @@ function EmptyState({ brandKit, onSuggestionClick }: { brandKit: BrandKit | null
   )
 }
 
-export function Chat({ brandKit }: { brandKit: BrandKit | null }) {
-  const [messages, setMessages] = useState<Message[]>([])
+interface ChatProps {
+  brandKit: BrandKit | null
+  conversationId: string | null
+  initialMessages: Message[]
+  onMessagesChange: (messages: Message[]) => void
+}
+
+export function Chat({ brandKit, conversationId, initialMessages, onMessagesChange }: ChatProps) {
+  const [messages, setMessages] = useState<Message[]>(initialMessages)
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [viewer, setViewer] = useState<{ slides: string[]; index: number; name: string } | null>(null)
@@ -916,14 +923,14 @@ export function Chat({ brandKit }: { brandKit: BrandKit | null }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  // Clear server-side session on mount to avoid stale/corrupted history
+  // Reset messages when conversation changes
   useEffect(() => {
-    fetch('/api/chat', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId: 'main' }),
-    }).catch(() => {})
-  }, [])
+    setMessages(initialMessages)
+    setCumulative({
+      totalInputTokens: 0, totalOutputTokens: 0, totalCacheReadTokens: 0,
+      totalCostUSD: 0, totalCostWithoutOptimizationsUSD: 0, savingsPercent: 0, requestCount: 0,
+    })
+  }, [conversationId])
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
@@ -948,12 +955,18 @@ export function Chat({ brandKit }: { brandKit: BrandKit | null }) {
     setLoading(true)
 
     try {
+      // Build history for API (only role + content, no UI metadata)
+      const apiHistory = newMessages.slice(0, -1).map(m => ({
+        role: m.role,
+        content: m.content,
+      }))
+
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: msg,
-          sessionId: 'main',
+          history: apiHistory,
           brandKit: brandKit || undefined,
         }),
       })
@@ -973,7 +986,9 @@ export function Chat({ brandKit }: { brandKit: BrandKit | null }) {
         metrics: data.metrics,
         timestamp: Date.now(),
       }
-      setMessages([...newMessages, assistantMsg])
+      const updatedMessages = [...newMessages, assistantMsg]
+      setMessages(updatedMessages)
+      onMessagesChange(updatedMessages)
 
       // Update cumulative metrics
       if (data.metrics) {
@@ -995,11 +1010,13 @@ export function Chat({ brandKit }: { brandKit: BrandKit | null }) {
         })
       }
     } catch (err: any) {
-      setMessages([...newMessages, {
-        id: `e_${Date.now()}`, role: 'assistant',
+      const errorMessages = [...newMessages, {
+        id: `e_${Date.now()}`, role: 'assistant' as const,
         content: `Error: ${err.message || 'No se pudo conectar con el agente'}`,
         timestamp: Date.now(),
-      }])
+      }]
+      setMessages(errorMessages)
+      onMessagesChange(errorMessages)
     }
     setLoading(false)
   }
