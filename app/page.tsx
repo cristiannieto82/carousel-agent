@@ -11,7 +11,11 @@ function loadBrandKit(): BrandKit | null {
   if (typeof window === 'undefined') return null
   try {
     const raw = localStorage.getItem(BRAND_KIT_KEY)
-    return raw ? JSON.parse(raw) : null
+    if (!raw) return null
+    const kit = JSON.parse(raw)
+    // Backfill description for kits saved before this field existed
+    if (!('description' in kit)) kit.description = ''
+    return kit
   } catch { return null }
 }
 

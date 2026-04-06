@@ -41,6 +41,7 @@ export async function POST(req: Request) {
       ? buildSystemPrompt({
           name: brandKit.name,
           handle: brandKit.handle,
+          description: brandKit.description || '',
           accentColor: brandKit.accentColor,
           mode: brandKit.mode,
           titleFont: brandKit.titleFont,

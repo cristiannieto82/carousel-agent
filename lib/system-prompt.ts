@@ -1,6 +1,7 @@
 interface BrandKitContext {
   name: string
   handle: string
+  description: string
   accentColor: string
   mode: 'dark' | 'light'
   titleFont: string
@@ -17,6 +18,7 @@ Marca del usuario configurada:
 
 Nombre: ${brandKit.name}
 Handle: ${brandKit.handle ? `@${brandKit.handle}` : 'No definido'}
+Descripcion: ${brandKit.description || 'No definida'}
 Color principal: ${brandKit.accentColor}
 Modo: ${brandKit.mode}
 Fuente titulos: ${brandKit.titleFont}
