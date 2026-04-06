@@ -11,8 +11,22 @@ export async function compressHistory(
     return { compressed: messages, wasCompressed: false }
   }
 
-  const recentMessages = messages.slice(-(RECENT_TURNS_TO_KEEP * 2))
-  const olderMessages = messages.slice(0, -(RECENT_TURNS_TO_KEEP * 2))
+  // Find a safe split point that doesn't separate tool_use from tool_result.
+  // Walk backwards from the ideal split to find a user message that isn't tool_results.
+  let splitIdx = messages.length - RECENT_TURNS_TO_KEEP * 2
+  while (splitIdx > 0) {
+    const msg = messages[splitIdx]
+    const isToolResult = msg.role === 'user' && Array.isArray(msg.content) &&
+      msg.content.some((b: any) => b.type === 'tool_result')
+    if (!isToolResult) break
+    splitIdx--
+  }
+  if (splitIdx <= 0) {
+    return { compressed: messages, wasCompressed: false }
+  }
+
+  const recentMessages = messages.slice(splitIdx)
+  const olderMessages = messages.slice(0, splitIdx)
 
   // Summarize older messages with Haiku (cheap)
   const summaryContent = olderMessages

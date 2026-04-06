@@ -43,13 +43,15 @@ export function calculateStepCost(
   const cacheCreationTokens = usage.cache_creation_input_tokens || 0
 
   // Actual cost with optimizations
+  // For display purposes, treat cache creation at input price (the write premium is a
+  // one-time investment that pays off on future requests via cheap cache reads).
   const costUSD =
     (inputTokens * pricing.input +
       outputTokens * pricing.output +
       cacheReadTokens * pricing.cacheRead +
-      cacheCreationTokens * pricing.cacheWrite) / 1_000_000
+      cacheCreationTokens * pricing.input) / 1_000_000
 
-  // What it would have cost: all cached tokens at full input price, using Sonnet always
+  // What it would have cost: all cached tokens at full Sonnet input price, no caching, no model routing
   const sonnetPricing = PRICING['claude-sonnet-4-20250514']
   const totalInputIfNoCaching = inputTokens + cacheReadTokens + cacheCreationTokens
   const costWithoutOptimizationsUSD =

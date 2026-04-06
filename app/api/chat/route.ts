@@ -183,13 +183,9 @@ export async function POST(req: Request) {
       history.push(toolResultMsg)
       compressedHistory.push(toolResultMsg)
 
-      // If stop_reason is 'end_turn', break
-      if (response.stop_reason === 'end_turn') {
-        const finalText = textBlocks.map((b: any) => b.text).join('\n')
-        agentSteps.push({ type: 'done', label: 'Respuesta generada' })
-        const sessionMetrics = aggregateMetrics(stepMetrics)
-        return Response.json({ text: finalText, toolResults: allToolResults, agentSteps, metrics: sessionMetrics })
-      }
+      // Always continue the loop so the model processes tool results.
+      // Never break early when there are pending tool_results — the API
+      // requires tool_result immediately after tool_use in the history.
     }
 
     const sessionMetrics = aggregateMetrics(stepMetrics)
