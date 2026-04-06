@@ -19,3 +19,11 @@ export function getLatestCarousel(): Carousel | undefined {
   const entries = Array.from(store.values())
   return entries[entries.length - 1]
 }
+
+export function getAllCarousels(): Carousel[] {
+  return Array.from(store.values()).sort((a, b) => b.createdAt - a.createdAt)
+}
+
+export function deleteCarousel(id: string): boolean {
+  return store.delete(id)
+}
