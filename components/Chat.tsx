@@ -916,6 +916,15 @@ export function Chat({ brandKit }: { brandKit: BrandKit | null }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
+  // Clear server-side session on mount to avoid stale/corrupted history
+  useEffect(() => {
+    fetch('/api/chat', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: 'main' }),
+    }).catch(() => {})
+  }, [])
+
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [messages, loading])

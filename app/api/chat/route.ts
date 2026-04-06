@@ -18,6 +18,45 @@ function getSession(id: string): any[] {
   return sessions.get(id)!
 }
 
+/**
+ * Sanitize history so every assistant tool_use has a matching tool_result immediately after.
+ * Removes orphaned assistant messages with tool_use blocks that lack tool_results.
+ */
+function sanitizeHistory(messages: any[]): any[] {
+  const result: any[] = []
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i]
+
+    // Check if this assistant message contains tool_use blocks
+    if (msg.role === 'assistant' && Array.isArray(msg.content)) {
+      const toolUseIds = msg.content
+        .filter((b: any) => b.type === 'tool_use')
+        .map((b: any) => b.id)
+
+      if (toolUseIds.length > 0) {
+        // Check if the next message has matching tool_results
+        const next = messages[i + 1]
+        const hasResults = next?.role === 'user' && Array.isArray(next?.content) &&
+          toolUseIds.every((id: string) =>
+            next.content.some((b: any) => b.type === 'tool_result' && b.tool_use_id === id)
+          )
+
+        if (!hasResults) {
+          // Strip tool_use blocks, keep only text
+          const textOnly = msg.content.filter((b: any) => b.type === 'text')
+          if (textOnly.length > 0) {
+            result.push({ role: 'assistant', content: textOnly })
+          }
+          continue
+        }
+      }
+    }
+
+    result.push(msg)
+  }
+  return result
+}
+
 export interface AgentStep {
   type: 'classify' | 'model' | 'tools' | 'cache' | 'compress' | 'tool_call' | 'done'
   label: string
@@ -68,7 +107,12 @@ export async function POST(req: Request) {
       detail: route.reason,
     })
 
-    // ── Step 3: Context compression ──
+    // ── Step 3: Sanitize & compress history ──
+    // Fix any corrupted history (orphaned tool_use without tool_result)
+    const sanitized = sanitizeHistory(history)
+    history.length = 0
+    history.push(...sanitized)
+
     history.push({ role: 'user', content: message })
     const { compressed: compressedHistory, wasCompressed } = await compressHistory(history, client)
     if (wasCompressed) {
