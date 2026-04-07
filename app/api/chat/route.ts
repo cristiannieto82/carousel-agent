@@ -210,10 +210,15 @@ export async function POST(req: Request) {
         console.log(`[agent] Calling tool: ${toolUse.name}`)
         const result = await executeToolCall(toolUse.name, toolUse.input)
         allToolResults.push({ toolName: toolUse.name, result })
+
+        // Strip heavy fields (allPreviews, previews contain full HTML with base64 images)
+        // from the tool_result that goes into conversation history.
+        // The model only needs IDs, summaries, and scores to continue the agentic loop.
+        const { allPreviews, previews, preview, ...lightResult } = result || {}
         toolResults.push({
           type: 'tool_result',
           tool_use_id: toolUse.id,
-          content: JSON.stringify(result),
+          content: JSON.stringify(lightResult),
         })
       }
 
