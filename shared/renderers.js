@@ -300,15 +300,12 @@ function decoIconHTML(key, position, opacity, accentHex) {
   const pos = {
     'top-right':    'top:40px;right:40px;',
     'top-left':     'top:40px;left:40px;',
-    'bottom-right': 'bottom:40px;right:40px;',
-    'bottom-left':  'bottom:40px;left:40px;',
-  }[position] || 'bottom:40px;right:40px;'
-  const op = opacity != null && opacity !== '' ? Number(opacity) / 100 : 0.08
+    'bottom-right': 'bottom:80px;right:40px;',
+    'bottom-left':  'bottom:80px;left:40px;',
+  }[position] || 'bottom:80px;right:40px;'
+  // Always render at full accent color — no transparency
   const hex = accentHex || '#FF4800'
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="280" height="280" viewBox="0 0 24 24" fill="none" stroke="rgba(${r},${g},${b},${op})" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;${pos}pointer-events:none;z-index:0;">${ICONS[key]}</svg>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 24 24" fill="none" stroke="${hex}" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;${pos}pointer-events:none;z-index:0;opacity:0.15;filter:drop-shadow(0 0 30px ${hex});">${ICONS[key]}</svg>`
 }
 
 /* ── Brand icon rendering ── */
