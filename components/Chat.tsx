@@ -947,20 +947,42 @@ export function Chat({ brandKit, conversationId, initialMessages, onMessagesChan
     }
   }, [input])
 
+  // Compress image: resize to max 400px, JPEG quality 0.7 (~30KB instead of 5MB)
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        const MAX = 400
+        let w = img.width, h = img.height
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round(h * MAX / w); w = MAX }
+          else { w = Math.round(w * MAX / h); h = MAX }
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = w; canvas.height = h
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0, w, h)
+        // Use PNG for transparency (logos), JPEG for photos
+        const isPNG = file.type === 'image/png'
+        resolve(isPNG ? canvas.toDataURL('image/png', 0.8) : canvas.toDataURL('image/jpeg', 0.7))
+      }
+      img.src = URL.createObjectURL(file)
+    })
+  }
+
+  const addImage = async (file: File) => {
+    const dataUrl = await compressImage(file)
+    setAttachedImages(prev => [...prev, {
+      id: `img_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+      name: file.name || 'image.png',
+      dataUrl,
+    }])
+  }
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'))
-    for (const file of files) {
-      const reader = new FileReader()
-      reader.onload = (ev) => {
-        setAttachedImages(prev => [...prev, {
-          id: `img_${Date.now()}_${Math.random().toString(36).slice(2,5)}`,
-          name: file.name,
-          dataUrl: ev.target?.result as string,
-        }])
-      }
-      reader.readAsDataURL(file)
-    }
+    files.forEach(f => addImage(f))
   }
 
   const handlePaste = (e: React.ClipboardEvent) => {
@@ -968,16 +990,7 @@ export function Chat({ brandKit, conversationId, initialMessages, onMessagesChan
     for (const item of items) {
       if (item.type.startsWith('image/')) {
         const file = item.getAsFile()
-        if (!file) continue
-        const reader = new FileReader()
-        reader.onload = (ev) => {
-          setAttachedImages(prev => [...prev, {
-            id: `img_${Date.now()}_${Math.random().toString(36).slice(2,5)}`,
-            name: file.name || 'pasted-image.png',
-            dataUrl: ev.target?.result as string,
-          }])
-        }
-        reader.readAsDataURL(file)
+        if (file) addImage(file)
       }
     }
   }
@@ -1249,17 +1262,7 @@ export function Chat({ brandKit, conversationId, initialMessages, onMessagesChan
               style={{ display: 'none' }}
               onChange={e => {
                 const files = Array.from(e.target.files || [])
-                for (const file of files) {
-                  const reader = new FileReader()
-                  reader.onload = (ev) => {
-                    setAttachedImages(prev => [...prev, {
-                      id: `img_${Date.now()}_${Math.random().toString(36).slice(2,5)}`,
-                      name: file.name,
-                      dataUrl: ev.target?.result as string,
-                    }])
-                  }
-                  reader.readAsDataURL(file)
-                }
+                files.forEach(f => addImage(f))
                 e.target.value = ''
               }}
             />
