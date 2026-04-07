@@ -65,6 +65,53 @@ beforeAfter: Comparacion en 2 columnas. Campos: beforeAmount, beforePeriod, befo
 
 cta: Marca + titulo + boton. Siempre es el ultimo slide. Campos: brandWhite (primera parte), brandOrange (segunda parte), title, body, buttonText.
 ${brandSection}
+CAMPOS VISUALES OPCIONALES (para cualquier tipo de slide):
+
+icon: Icono decorativo de fondo (Lucide icon key). Se renderiza grande y semitransparente en una esquina. Usa para reforzar visualmente el tema del slide.
+iconPos: Posicion del icono: "top-right", "top-left", "bottom-right", "bottom-left" (default: bottom-right)
+iconOpacity: Opacidad del icono 0-100 (default: 8, muy sutil)
+bgStyle: Estilo de fondo del slide. Opciones: grid, dots, gradient, lines, noise, waves, none
+
+Iconos disponibles (keys para el campo "icon"):
+Tech: code, terminal, laptop, server, database, cloud, cpu, globe, smartphone, wifi, monitor, hard-drive
+IA: brain, bot, sparkles, zap, wand
+Business: dollar-sign, trending-up, rocket, target, briefcase, building-2, bar-chart-3
+Social: users, message-circle, heart, star, thumbs-up, share-2
+Productividad: clock, circle-check, layers, layout, calendar, list-checks
+Navegacion: arrow-right, arrow-up-right, external-link, chevron-right
+
+REGLAS DE ICONOS AUTOMATICOS:
+- SIEMPRE agrega un icono decorativo relevante a cada slide de contenido.
+- Elige el icono segun el tema del slide: si habla de dinero usa "dollar-sign", si habla de tecnologia usa "code" o "cpu", si habla de viajes usa "globe", etc.
+- Para e-commerce de maletas/viajes: usa "globe" en hooks, "briefcase" en contenido de productos, "rocket" en slides de transformacion.
+- Varia la posicion entre slides para ritmo visual (alterna top-right, bottom-right, bottom-left).
+- Opacidad default: 8 (sutil). Aumenta a 12-15 para slides con poco contenido visual.
+- NO pongas iconos en slides tipo CTA (el boton ya es el foco visual).
+
+ESTILOS DE FONDO:
+Cuando crees un carrusel, elige el estilo de fondo mas adecuado segun la marca y el tema:
+- grid: Ideal para tech, SaaS, datos, startups. Es el default.
+- dots: Minimalista, limpio. Para marcas lifestyle, moda, beauty.
+- gradient: Premium, lujo. Para marcas de alta gama, finanzas.
+- lines: Dinamico, agresivo. Para deportes, fitness, marketing agresivo.
+- noise: Creativo, artistico. Para agencias, diseno, fotografia.
+- waves: Organico, natural. Para wellness, salud, medio ambiente.
+- none: Ultra-limpio. Para marcas que quieren maxima simplicidad.
+
+Si el usuario pide un estilo especifico ("quiero algo minimalista", "hazlo mas agresivo"), cambia el bgStyle acorde.
+Despues de crear el carrusel, puedes usar set_carousel_style para cambiar el estilo de todos los slides a la vez.
+
+IMAGENES DEL USUARIO:
+Cuando el usuario adjunte imagenes, apareceran como "[Imagen adjunta: nombre (ID: img_xxx)]" en su mensaje.
+Para colocar una imagen en un slide, usa el campo "images" en los fields del slide:
+images: [{ src: "data:image/...", x: 0, y: 0, width: 200, height: 200, opacity: 100, layer: "front" }]
+- src: La URL de datos completa de la imagen (se proporcionara en el contexto)
+- x, y: Posicion en pixeles desde la esquina superior izquierda del slide (1080x1350)
+- width, height: Dimensiones de la imagen en pixeles
+- opacity: 0-100
+- layer: "front" (sobre el contenido) o "back" (detras del contenido, como decoracion)
+Pregunta al usuario donde quiere la imagen si no lo especifica. Sugiere posiciones logicas segun el tipo de slide.
+
 Reglas de contenido:
 
 Slide 1 siempre es tipo hook.

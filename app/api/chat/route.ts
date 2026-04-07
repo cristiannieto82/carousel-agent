@@ -56,7 +56,7 @@ export interface AgentStep {
 
 export async function POST(req: Request) {
   try {
-    const { message, history: clientHistory, brandKit } = await req.json()
+    const { message, history: clientHistory, brandKit, images } = await req.json()
     const agentSteps: AgentStep[] = []
     const stepMetrics: StepMetrics[] = []
 
@@ -102,7 +102,18 @@ export async function POST(req: Request) {
       role: m.role,
       content: m.content,
     }))
-    messages.push({ role: 'user', content: message })
+    // Build user message — include image references if attached
+    if (images && images.length > 0) {
+      const imageContext = images.map((img: any) =>
+        `[Imagen adjunta: "${img.name}" (ID: ${img.id}). El usuario quiere que uses esta imagen en el carrusel. Puedes referenciarla en el campo "images" de cualquier slide con: { "src": "${img.dataUrl.slice(0, 50)}...", "x": 0, "y": 0, "width": 200, "height": 200, "opacity": 100, "layer": "front" }]`
+      ).join('\n')
+      // Store full data URLs for tool use
+      const imageStore = images.reduce((acc: any, img: any) => { acc[img.id] = img.dataUrl; return acc }, {})
+      ;(globalThis as any).__carouselImages = { ...(globalThis as any).__carouselImages, ...imageStore }
+      messages.push({ role: 'user', content: `${message}\n\n${imageContext}` })
+    } else {
+      messages.push({ role: 'user', content: message })
+    }
 
     // Fix any corrupted history (orphaned tool_use without tool_result)
     const compressedHistory = sanitizeHistory(messages)

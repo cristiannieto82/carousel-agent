@@ -299,6 +299,19 @@ export const anthropicToolDefs = [
       required: ['topic'],
     },
   },
+  // ── NEW: Set Carousel Style ──
+  {
+    name: 'set_carousel_style',
+    description: 'Sets the visual background style for all slides in a carousel. Styles: grid (tech/SaaS), dots (minimalist), gradient (premium/luxury), lines (dynamic/aggressive), noise (creative/artistic), waves (organic/wellness), none (ultra-clean solid).',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        carouselId: { type: 'string' },
+        style: { type: 'string', enum: ['grid', 'dots', 'gradient', 'lines', 'noise', 'waves', 'none'], description: 'Background style to apply' },
+      },
+      required: ['carouselId', 'style'],
+    },
+  },
 ]
 
 // ── Tool execution (now async for URL fetching) ──
@@ -992,6 +1005,27 @@ export async function executeToolCall(toolName: string, args: any): Promise<any>
             rationale: '[por que este tipo de slide aqui]',
           })),
         },
+      }
+    }
+
+    case 'set_carousel_style': {
+      const { carouselId, style } = args
+      const carousel = carouselId === 'latest' ? getLatestCarousel() : getCarousel(carouselId)
+      if (!carousel) return { error: 'Carousel not found' }
+      // Apply style to all slides
+      for (const slide of carousel.slides) {
+        slide.fields.bgStyle = style
+      }
+      setCarousel(carousel)
+      const brand = getBrand(carousel.brandId)
+      const allPreviews = carousel.slides.map((s: any, i: number) =>
+        renderSlideHTML(s, i, carousel.slides.length, brand)
+      )
+      return {
+        applied: true,
+        style,
+        slideCount: carousel.slides.length,
+        allPreviews,
       }
     }
 

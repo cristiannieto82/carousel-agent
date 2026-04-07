@@ -59,7 +59,48 @@ function slideCSS(b, dims) {
     width: 980px; height: 980px;
     background: radial-gradient(ellipse at center, ${ag(0.20)} 0%, ${ag(0.07)} 40%, transparent 65%);
   }
-  .grid-bg::after {
+  /* Background styles */
+  .bg-grid::after {
+    content: ''; position: absolute; inset: 0;
+    background-image: linear-gradient(${b.mode === 'dark' ? 'rgba(42,42,42,0.35)' : 'rgba(200,200,200,0.25)'} 1px, transparent 1px), linear-gradient(90deg, ${b.mode === 'dark' ? 'rgba(42,42,42,0.35)' : 'rgba(200,200,200,0.25)'} 1px, transparent 1px);
+    background-size: 48px 48px; opacity: 0.55; pointer-events: none; z-index: 0;
+  }
+  .bg-dots::after {
+    content: ''; position: absolute; inset: 0;
+    background-image: radial-gradient(circle, ${b.mode === 'dark' ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)'} 1.5px, transparent 1.5px);
+    background-size: 32px 32px; pointer-events: none; z-index: 0;
+  }
+  .bg-gradient::after {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 50% 30%, ${ag(0.12)}, transparent 70%);
+    pointer-events: none; z-index: 0;
+  }
+  .bg-lines::after {
+    content: ''; position: absolute; inset: 0;
+    background-image: repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 28px,
+      ${b.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'} 28px,
+      ${b.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'} 29px
+    );
+    pointer-events: none; z-index: 0;
+  }
+  .bg-noise::after {
+    content: ''; position: absolute; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='${b.mode === 'dark' ? '0.06' : '0.04'}'/%3E%3C/svg%3E");
+    background-size: 256px 256px;
+    pointer-events: none; z-index: 0;
+  }
+  .bg-waves::after {
+    content: ''; position: absolute; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg width='1080' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 100 Q270 40 540 100 T1080 100' fill='none' stroke='${encodeURIComponent(b.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)')}' stroke-width='2'/%3E%3C/svg%3E");
+    background-size: 1080px 200px;
+    background-position: center;
+    pointer-events: none; z-index: 0;
+  }
+  .bg-none::after { display: none; }
+  .grid-bg::after { /* alias for bg-grid */
     content: ''; position: absolute; inset: 0;
     background-image: linear-gradient(${b.mode === 'dark' ? 'rgba(42,42,42,0.35)' : 'rgba(200,200,200,0.25)'} 1px, transparent 1px), linear-gradient(90deg, ${b.mode === 'dark' ? 'rgba(42,42,42,0.35)' : 'rgba(200,200,200,0.25)'} 1px, transparent 1px);
     background-size: 48px 48px; opacity: 0.55; pointer-events: none; z-index: 0;
@@ -341,16 +382,17 @@ function bgOverrideCSS(override, brand) {
   </style>`
 }
 
-function wrap(content, cls, idx, total, brand, bgOvr, dims) {
+function wrap(content, cls, idx, total, brand, bgOvr, dims, bgStyle) {
   const W = dims?.w || 1080
   const pct = total > 0 ? ((idx + 1) / total) * 100 : 100
   const isLast = idx >= total - 1
   const effectiveMode = bgOvr && bgOvr !== '' ? bgOvr : brand.mode
   const css = slideCSS(brand, dims)
   const overrideStyle = bgOverrideCSS(bgOvr, brand)
+  const bgClass = bgStyle ? `bg-${bgStyle}` : 'bg-grid'
   const progressBar = `<div class="progress"><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div><span class="progress-label">${idx + 1}/${total}</span></div>`
   const swipeArrow = isLast ? '' : `<div class="swipe-arrow"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="${effectiveMode === 'dark' ? '#fff' : '#000'}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`
-  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=${W}"><style>${css}</style>${overrideStyle}</head><body><div class="slide grid-bg ${cls}">${content}<div class="handle"><span>@</span>${esc(brand.handle)}</div>${progressBar}${swipeArrow}</div></body></html>`
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=${W}"><style>${css}</style>${overrideStyle}</head><body><div class="slide ${bgClass} ${cls}">${content}<div class="handle"><span>@</span>${esc(brand.handle)}</div>${progressBar}${swipeArrow}</div></body></html>`
 }
 
 function renderHook(f, i, t, b, d) {
@@ -361,7 +403,7 @@ function renderHook(f, i, t, b, d) {
     ${f.body ? `<p class="body" style="margin-top:28px">${esc(f.body)}</p>` : ''}
     ${decoIconHTML(f.icon, f.iconPos, f.iconOpacity, b.accent)}
     ${customImagesHTML(f.images)}
-  `, 'centered', i, t, b, f.bgOverride, d)
+  `, 'centered', i, t, b, f.bgOverride, d, f.bgStyle)
 }
 
 function renderContent(f, i, t, b, d) {
@@ -374,7 +416,7 @@ function renderContent(f, i, t, b, d) {
     ${f.body ? `<p class="body">${esc(f.body)}</p>` : ''}
     ${decoIconHTML(f.icon, f.iconPos, f.iconOpacity, b.accent)}
     ${customImagesHTML(f.images)}
-  `, '', i, t, b, f.bgOverride, d)
+  `, '', i, t, b, f.bgOverride, d, f.bgStyle)
 }
 
 function renderBigNumber(f, i, t, b, d) {
@@ -384,7 +426,7 @@ function renderBigNumber(f, i, t, b, d) {
     ${f.body ? `<div class="divider"></div><p class="body">${esc(f.body)}</p>` : ''}
     ${decoIconHTML(f.icon, f.iconPos, f.iconOpacity, b.accent)}
     ${customImagesHTML(f.images)}
-  `, 'glow-bottom', i, t, b, f.bgOverride, d)
+  `, 'glow-bottom', i, t, b, f.bgOverride, d, f.bgStyle)
 }
 
 function renderList(f, i, t, b, d) {
@@ -399,7 +441,7 @@ function renderList(f, i, t, b, d) {
     </div>
     ${decoIconHTML(f.icon, f.iconPos, f.iconOpacity, b.accent)}
     ${customImagesHTML(f.images)}
-  `, '', i, t, b, f.bgOverride, d)
+  `, '', i, t, b, f.bgOverride, d, f.bgStyle)
 }
 
 function renderBeforeAfter(f, i, t, b, d) {
@@ -425,7 +467,7 @@ function renderBeforeAfter(f, i, t, b, d) {
     ${f.body ? `<div class="divider"></div><p class="body">${esc(f.body)}</p>` : ''}
     ${decoIconHTML(f.icon, f.iconPos, f.iconOpacity, b.accent)}
     ${customImagesHTML(f.images)}
-  `, '', i, t, b, f.bgOverride, d)
+  `, '', i, t, b, f.bgOverride, d, f.bgStyle)
 }
 
 function renderCTA(f, i, t, b, d) {
@@ -436,7 +478,7 @@ function renderCTA(f, i, t, b, d) {
     <div class="cta-btn">${esc(f.buttonText)}</div>
     ${decoIconHTML(f.icon, f.iconPos, f.iconOpacity, b.accent)}
     ${customImagesHTML(f.images)}
-  `, 'centered glow-center', i, t, b, f.bgOverride, d)
+  `, 'centered glow-center', i, t, b, f.bgOverride, d, f.bgStyle)
 }
 
 function renderQuote(f, i, t, b, d) {
@@ -458,7 +500,7 @@ function renderQuote(f, i, t, b, d) {
     </div>
     ${decoIconHTML(f.icon, f.iconPos, f.iconOpacity, b.accent)}
     ${customImagesHTML(f.images)}
-  `, 'glow-center', i, t, b, f.bgOverride, d)
+  `, 'glow-center', i, t, b, f.bgOverride, d, f.bgStyle)
 }
 
 function renderTimeline(f, i, t, b, d) {
@@ -476,7 +518,7 @@ function renderTimeline(f, i, t, b, d) {
     <div class="tl">${steps}</div>
     ${decoIconHTML(f.icon, f.iconPos, f.iconOpacity, b.accent)}
     ${customImagesHTML(f.images)}
-  `, '', i, t, b, f.bgOverride, d)
+  `, '', i, t, b, f.bgOverride, d, f.bgStyle)
 }
 
 function renderPricing(f, i, t, b, d) {
@@ -496,7 +538,7 @@ function renderPricing(f, i, t, b, d) {
     <div class="pricing-grid">${plans}</div>
     ${decoIconHTML(f.icon, f.iconPos, f.iconOpacity, b.accent)}
     ${customImagesHTML(f.images)}
-  `, '', i, t, b, f.bgOverride, d)
+  `, '', i, t, b, f.bgOverride, d, f.bgStyle)
 }
 
 export function renderSlideHTML(slide, idx, total, brand, dims) {

@@ -916,12 +916,15 @@ export function Chat({ brandKit, conversationId, initialMessages, onMessagesChan
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [viewer, setViewer] = useState<{ slides: string[]; index: number; name: string } | null>(null)
+  const [attachedImages, setAttachedImages] = useState<{ id: string; name: string; dataUrl: string }[]>([])
+  const [dragOver, setDragOver] = useState(false)
   const [cumulative, setCumulative] = useState<CumulativeMetrics>({
     totalInputTokens: 0, totalOutputTokens: 0, totalCacheReadTokens: 0,
     totalCostUSD: 0, totalCostWithoutOptimizationsUSD: 0, savingsPercent: 0, requestCount: 0,
   })
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
 
   // Reset messages when conversation changes
   useEffect(() => {
@@ -944,6 +947,41 @@ export function Chat({ brandKit, conversationId, initialMessages, onMessagesChan
     }
   }, [input])
 
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'))
+    for (const file of files) {
+      const reader = new FileReader()
+      reader.onload = (ev) => {
+        setAttachedImages(prev => [...prev, {
+          id: `img_${Date.now()}_${Math.random().toString(36).slice(2,5)}`,
+          name: file.name,
+          dataUrl: ev.target?.result as string,
+        }])
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = Array.from(e.clipboardData.items)
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile()
+        if (!file) continue
+        const reader = new FileReader()
+        reader.onload = (ev) => {
+          setAttachedImages(prev => [...prev, {
+            id: `img_${Date.now()}_${Math.random().toString(36).slice(2,5)}`,
+            name: file.name || 'pasted-image.png',
+            dataUrl: ev.target?.result as string,
+          }])
+        }
+        reader.readAsDataURL(file)
+      }
+    }
+  }
+
   const sendMessage = async (text?: string) => {
     const msg = text || input.trim()
     if (!msg || loading) return
@@ -952,6 +990,7 @@ export function Chat({ brandKit, conversationId, initialMessages, onMessagesChan
     const newMessages = [...messages, userMsg]
     setMessages(newMessages)
     setInput('')
+    setAttachedImages([])
     setLoading(true)
 
     try {
@@ -968,6 +1007,11 @@ export function Chat({ brandKit, conversationId, initialMessages, onMessagesChan
           message: msg,
           history: apiHistory,
           brandKit: brandKit || undefined,
+          images: attachedImages.length > 0 ? attachedImages.map(img => ({
+            id: img.id,
+            name: img.name,
+            dataUrl: img.dataUrl,
+          })) : undefined,
         }),
       })
 
@@ -1041,7 +1085,16 @@ export function Chat({ brandKit, conversationId, initialMessages, onMessagesChan
   }
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div
+      onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+      onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false) }}
+      onDrop={e => { handleDrop(e); setDragOver(false) }}
+      style={{
+        flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        border: dragOver ? '2px dashed var(--accent)' : '2px solid transparent',
+        transition: 'border-color 0.15s',
+      }}
+    >
       {/* Messages area */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '24px 0' }}>
         {messages.length === 0 ? (
@@ -1126,7 +1179,7 @@ export function Chat({ brandKit, conversationId, initialMessages, onMessagesChan
           <form
             onSubmit={e => { e.preventDefault(); sendMessage() }}
             style={{
-              display: 'flex', alignItems: 'flex-end', gap: 10,
+              display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap',
               padding: '10px 14px 10px 18px',
               borderRadius: 'var(--radius-lg)',
               background: 'var(--bg-card)',
@@ -1144,11 +1197,39 @@ export function Chat({ brandKit, conversationId, initialMessages, onMessagesChan
               }
             }}
           >
+            {attachedImages.length > 0 && (
+              <div style={{
+                display: 'flex', gap: 8, padding: '8px 0 4px',
+                flexWrap: 'wrap', width: '100%',
+              }}>
+                {attachedImages.map(img => (
+                  <div key={img.id} style={{
+                    position: 'relative', width: 48, height: 48,
+                    borderRadius: 'var(--radius-sm)', overflow: 'hidden',
+                    border: '1px solid var(--border)',
+                  }}>
+                    <img src={img.dataUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <button
+                      onClick={() => setAttachedImages(prev => prev.filter(i => i.id !== img.id))}
+                      style={{
+                        position: 'absolute', top: -4, right: -4,
+                        width: 18, height: 18, borderRadius: '50%',
+                        background: '#FF3B30', border: 'none', color: '#fff',
+                        fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        lineHeight: 1,
+                      }}
+                    >x</button>
+                  </div>
+                ))}
+              </div>
+            )}
             <textarea
               ref={inputRef}
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
               placeholder="Describe el carrusel que quieres crear..."
               disabled={loading}
               rows={1}
@@ -1160,6 +1241,48 @@ export function Chat({ brandKit, conversationId, initialMessages, onMessagesChan
                 maxHeight: 150, overflow: 'auto',
               }}
             />
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              style={{ display: 'none' }}
+              onChange={e => {
+                const files = Array.from(e.target.files || [])
+                for (const file of files) {
+                  const reader = new FileReader()
+                  reader.onload = (ev) => {
+                    setAttachedImages(prev => [...prev, {
+                      id: `img_${Date.now()}_${Math.random().toString(36).slice(2,5)}`,
+                      name: file.name,
+                      dataUrl: ev.target?.result as string,
+                    }])
+                  }
+                  reader.readAsDataURL(file)
+                }
+                e.target.value = ''
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => imageInputRef.current?.click()}
+              style={{
+                width: 36, height: 36, borderRadius: 'var(--radius-sm)',
+                background: 'transparent', border: 'none',
+                color: 'var(--text-muted)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'color var(--transition-fast)',
+                flexShrink: 0,
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-secondary)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+                <circle cx="9" cy="9" r="2"/>
+                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+              </svg>
+            </button>
             <button
               type="submit"
               disabled={loading || !input.trim()}
