@@ -319,11 +319,26 @@ export async function executeToolCall(toolName: string, args: any): Promise<any>
   switch (toolName) {
     case 'create_carousel': {
       const { name, brandId, slides } = args
+      if (!Array.isArray(slides)) return { error: 'slides must be an array' }
+
+      // Resolve image references (USE_IMAGE_xxx → actual data URL)
+      const imageStore = (globalThis as any).__carouselImages || {}
+      const resolveImages = (fields: any) => {
+        if (!fields?.images) return fields
+        return {
+          ...fields,
+          images: fields.images.map((img: any) => ({
+            ...img,
+            src: img.src?.startsWith('USE_IMAGE_') ? (imageStore[img.src.replace('USE_IMAGE_', '')] || img.src) : img.src,
+          })),
+        }
+      }
+
       const carousel: Carousel = {
         id: generateId(),
         name,
         brandId,
-        slides: slides.map((s: any) => ({ id: slideId(), type: s.type, fields: s.fields })),
+        slides: slides.map((s: any) => ({ id: slideId(), type: s.type, fields: resolveImages(s.fields) })),
         createdAt: Date.now(),
       }
       setCarousel(carousel)

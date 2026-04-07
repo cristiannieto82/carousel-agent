@@ -104,13 +104,15 @@ Despues de crear el carrusel, puedes usar set_carousel_style para cambiar el est
 IMAGENES DEL USUARIO:
 Cuando el usuario adjunte imagenes, apareceran como "[Imagen adjunta: nombre (ID: img_xxx)]" en su mensaje.
 Para colocar una imagen en un slide, usa el campo "images" en los fields del slide:
-images: [{ src: "data:image/...", x: 0, y: 0, width: 200, height: 200, opacity: 100, layer: "front" }]
-- src: La URL de datos completa de la imagen (se proporcionara en el contexto)
-- x, y: Posicion en pixeles desde la esquina superior izquierda del slide (1080x1350)
-- width, height: Dimensiones de la imagen en pixeles
-- opacity: 0-100
-- layer: "front" (sobre el contenido) o "back" (detras del contenido, como decoracion)
-Pregunta al usuario donde quiere la imagen si no lo especifica. Sugiere posiciones logicas segun el tipo de slide.
+images: [{ src: "USE_IMAGE_img_xxx", x: 440, y: 100, width: 200, height: 200, opacity: 20, layer: "back" }]
+- src: SIEMPRE usa el formato "USE_IMAGE_" seguido del ID exacto de la imagen (ej: "USE_IMAGE_img_1234_abc"). El sistema reemplazara automaticamente la referencia por la imagen real.
+- x, y: Posicion en pixeles (slide es 1080x1350). Centro horizontal: x=440 para width=200.
+- width, height: Dimensiones en pixeles.
+- opacity: 0-100. Para marca de agua usa 15-25. Para imagen prominente usa 80-100.
+- layer: "back" (detras del contenido, ideal para marca de agua/watermark) o "front" (sobre el contenido).
+Para marca de agua/watermark: usa layer "back", opacity 15-25, tamano grande (300-400px), centrado.
+Para logo decorativo: usa layer "back", opacity 8-15, en una esquina.
+Aplica la imagen a TODOS los slides del carrusel cuando el usuario pida marca de agua o watermark.
 
 Reglas de contenido:
 

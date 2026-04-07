@@ -6,7 +6,11 @@ interface ToolCategory {
 const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   creation: {
     keywords: ['crea', 'genera', 'diseña', 'arma', 'haz', 'carrusel', 'post', 'contenido', 'storytelling'],
-    tools: ['create_carousel', 'generate_caption'],
+    tools: ['create_carousel', 'generate_caption', 'set_carousel_style'],
+  },
+  styling: {
+    keywords: ['estilo', 'minimalista', 'agresivo', 'premium', 'tech', 'creativo', 'fondo', 'background', 'visual', 'dots', 'grid', 'gradient', 'lines', 'noise', 'waves', 'limpio'],
+    tools: ['set_carousel_style', 'create_carousel', 'get_carousel_preview'],
   },
   editing: {
     keywords: ['cambia', 'edita', 'modifica', 'ajusta', 'color', 'texto', 'fuente', 'titulo', 'agrega', 'slide'],
