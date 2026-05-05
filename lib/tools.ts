@@ -6,6 +6,31 @@ import { DEFAULT_BRANDS, deriveColors, makeBrand } from '../shared/brands'
 import type { Carousel, Brand } from './types'
 import { suggestHooks, getHooksByCategory, HOOK_FORMULAS, HOOK_CATEGORIES } from './hook-formulas'
 
+// SSRF protection: only allow public HTTPS URLs
+function isAllowedUrl(urlStr: string): boolean {
+  try {
+    const u = new URL(urlStr)
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return false
+    const hostname = u.hostname.toLowerCase()
+    // Block private/internal IPs and hostnames
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '0.0.0.0' ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('172.') ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('169.254.') ||
+      hostname.endsWith('.internal') ||
+      hostname.endsWith('.local') ||
+      hostname === 'metadata.google.internal'
+    ) return false
+    return true
+  } catch {
+    return false
+  }
+}
+
 let customBrand: Brand | null = null
 
 export function registerCustomBrand(kit: {
@@ -53,11 +78,11 @@ export const anthropicToolDefs = [
         brandId: { type: 'string', description: 'Brand ID: cristiannieto, futbolin, heymark, or custom' },
         slides: {
           type: 'array',
-          description: 'Array of slides. First should be hook, last should be cta.',
+          description: 'Array of slides. First should be hook, last should be cta. Available types: hook, content, bigNumber, list, beforeAfter, cta, quote, timeline, pricing, toolSpotlight, statDashboard, iconGrid, processFlow.',
           items: {
             type: 'object',
             properties: {
-              type: { type: 'string', enum: ['hook', 'content', 'bigNumber', 'list', 'beforeAfter', 'cta'] },
+              type: { type: 'string', enum: ['hook', 'content', 'bigNumber', 'list', 'beforeAfter', 'cta', 'quote', 'timeline', 'pricing', 'toolSpotlight', 'statDashboard', 'iconGrid', 'processFlow'] },
               fields: { type: 'object', description: 'Slide fields matching the type' },
             },
             required: ['type', 'fields'],
@@ -88,7 +113,7 @@ export const anthropicToolDefs = [
       properties: {
         carouselId: { type: 'string' },
         position: { type: 'number' },
-        type: { type: 'string', enum: ['hook', 'content', 'bigNumber', 'list', 'beforeAfter', 'cta'] },
+        type: { type: 'string', enum: ['hook', 'content', 'bigNumber', 'list', 'beforeAfter', 'cta', 'quote', 'timeline', 'pricing', 'toolSpotlight', 'statDashboard', 'iconGrid', 'processFlow'] },
         fields: { type: 'object' },
       },
       required: ['carouselId', 'position', 'type', 'fields'],
@@ -334,11 +359,63 @@ export async function executeToolCall(toolName: string, args: any): Promise<any>
         }
       }
 
+      // Auto-inject brand logo as watermark on every slide
+      const brandLogoSrc = imageStore['brand_logo']
+      const injectBrandLogo = (fields: any, slideType: string, slideIndex: number, totalSlides: number) => {
+        if (!brandLogoSrc) return fields
+        // Don't add to CTA slide — it already has branding
+        if (slideType === 'cta') return fields
+
+        const existing = fields.images || []
+        // Don't inject if user already placed the brand logo manually
+        if (existing.some((img: any) => img.src === brandLogoSrc || img.src === 'USE_IMAGE_brand_logo')) return fields
+
+        // Strategic positioning that avoids deco icons and content:
+        // - Deco icons go in corners (top-right, bottom-right usually)
+        // - Content is centered
+        // - Logo watermark goes bottom-left or top-left, alternating for variety
+        const hasDecoIcon = !!fields.icon
+        const iconPos = fields.iconPos || 'bottom-right'
+
+        // Choose position that doesn't conflict with deco icon
+        let logoX: number, logoY: number, logoSize: number
+
+        if (slideType === 'hook') {
+          // Hook slide: logo small, top-left
+          logoX = 48; logoY = 48; logoSize = 100
+        } else if (slideIndex % 2 === 0) {
+          // Even slides: bottom-left (safe — deco icons default to right side)
+          logoX = 48; logoY = 1190; logoSize = 110
+        } else {
+          // Odd slides: top-left
+          logoX = 48; logoY = 48; logoSize = 110
+        }
+
+        // If deco icon is on left side, flip logo to right
+        if (hasDecoIcon && (iconPos === 'top-left' || iconPos === 'bottom-left')) {
+          logoX = 920 // right side
+        }
+
+        return {
+          ...fields,
+          images: [
+            ...existing,
+            { src: brandLogoSrc, x: logoX, y: logoY, width: logoSize, height: logoSize, layer: 'front' },
+          ],
+        }
+      }
+
+      const processedSlides = slides.map((s: any, i: number) => ({
+        id: slideId(),
+        type: s.type,
+        fields: injectBrandLogo(resolveImages(s.fields), s.type, i, slides.length),
+      }))
+
       const carousel: Carousel = {
         id: generateId(),
         name,
         brandId,
-        slides: slides.map((s: any) => ({ id: slideId(), type: s.type, fields: resolveImages(s.fields) })),
+        slides: processedSlides,
         createdAt: Date.now(),
       }
       setCarousel(carousel)
@@ -513,6 +590,7 @@ export async function executeToolCall(toolName: string, args: any): Promise<any>
     // ── Brand Extraction from URL ──
     case 'extract_brand_from_url': {
       const { url } = args
+      if (!isAllowedUrl(url)) return { error: 'URL no permitida. Solo se permiten URLs publicas HTTPS.' }
       try {
         const response = await fetch(url, {
           headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CarouselAgent/1.0)' },
@@ -617,6 +695,7 @@ export async function executeToolCall(toolName: string, args: any): Promise<any>
 
       // If URL provided, fetch and extract text
       if (sourceUrl) {
+        if (!isAllowedUrl(sourceUrl)) return { error: 'URL no permitida. Solo se permiten URLs publicas HTTPS.' }
         try {
           const res = await fetch(sourceUrl, {
             headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CarouselAgent/1.0)' },
@@ -735,10 +814,12 @@ export async function executeToolCall(toolName: string, args: any): Promise<any>
       for (let i = 1; i < types.length; i++) { if (types[i] === types[i - 1]) consecutive++ }
       if (consecutive === 0) { rhythmScore += 6; rhythmFeedback += 'Sin tipos consecutivos repetidos. ' }
       else rhythmFeedback += `${consecutive} par(es) de slides consecutivos del mismo tipo. `
-      // Has bigNumber?
-      if (types.includes('bigNumber')) { rhythmScore += 3; rhythmFeedback += 'Usa bigNumber para impacto visual. ' }
-      // Has list or beforeAfter?
-      if (types.includes('list') || types.includes('beforeAfter')) { rhythmScore += 3; rhythmFeedback += 'Incluye slide tipo lista/comparacion. ' }
+      // Has bigNumber or statDashboard?
+      if (types.includes('bigNumber') || types.includes('statDashboard')) { rhythmScore += 3; rhythmFeedback += 'Usa slides de datos para impacto visual. ' }
+      // Has list, beforeAfter, iconGrid, or processFlow?
+      if (types.includes('list') || types.includes('beforeAfter') || types.includes('iconGrid') || types.includes('processFlow')) { rhythmScore += 3; rhythmFeedback += 'Incluye slides estructurados (lista/grid/proceso). ' }
+      // Bonus for premium types
+      if (types.includes('toolSpotlight') || types.includes('iconGrid')) { rhythmScore += 2; rhythmFeedback += 'Usa brand icons/logos (premium). ' }
       rhythmScore = Math.min(20, rhythmScore)
 
       // 4. CTA clarity (0-20)

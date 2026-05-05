@@ -4,7 +4,7 @@ export interface SlideFields {
 
 export interface Slide {
   id: string
-  type: 'hook' | 'content' | 'bigNumber' | 'list' | 'beforeAfter' | 'cta'
+  type: 'hook' | 'content' | 'bigNumber' | 'list' | 'beforeAfter' | 'cta' | 'quote' | 'timeline' | 'pricing' | 'toolSpotlight' | 'statDashboard' | 'iconGrid' | 'processFlow'
   fields: SlideFields
 }
 

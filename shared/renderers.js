@@ -1,4 +1,4 @@
-import { ICONS } from './icons.js'
+import { ICONS, BRAND_ICONS } from './icons.js'
 
 /* ── Helper: accent color → rgba with alpha ── */
 function accentRGBA(hex, alpha) {
@@ -290,7 +290,7 @@ function slideCSS(b, dims) {
 function customImagesHTML(images) {
   if (!images?.length) return ''
   return images.map(img =>
-    `<img src="${img.src}" alt="" style="position:absolute;left:${img.x ?? 0}px;top:${img.y ?? 0}px;width:${img.width ?? 200}px;height:${img.height ?? 200}px;opacity:${(img.opacity ?? 100) / 100};object-fit:contain;pointer-events:none;z-index:${img.layer === 'back' ? '0' : '2'};" />`
+    `<img src="${img.src}" alt="" style="position:absolute;left:${img.x ?? 0}px;top:${img.y ?? 0}px;width:${img.width ?? 200}px;height:${img.height ?? 200}px;opacity:1;object-fit:contain;pointer-events:none;z-index:${img.layer === 'back' ? '0' : '2'};" />`
   ).join('')
 }
 
@@ -305,19 +305,39 @@ function decoIconHTML(key, position, opacity, accentHex) {
   }[position] || 'bottom:80px;right:40px;'
   // Always render at full accent color — no transparency
   const hex = accentHex || '#FF4800'
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 24 24" fill="none" stroke="${hex}" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;${pos}pointer-events:none;z-index:0;opacity:0.15;filter:drop-shadow(0 0 30px ${hex});">${ICONS[key]}</svg>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 24 24" fill="none" stroke="${hex}" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;${pos}pointer-events:none;z-index:0;opacity:1;filter:drop-shadow(0 0 30px ${hex});">${ICONS[key]}</svg>`
 }
 
-/* ── Brand icon rendering ── */
+/* ── Brand icon rendering (company logos from BRAND_ICONS) ── */
 function brandIconHTML(brandIcon, brand) {
   if (!brandIcon) return ''
-  // New format: object with { slug, svg, color }
+  // String format: slug name matching BRAND_ICONS key
+  if (typeof brandIcon === 'string' && BRAND_ICONS[brandIcon]) {
+    const bi = BRAND_ICONS[brandIcon]
+    const isDark = brand?.mode !== 'light'
+    const overlay = isDark ? '255,255,255' : '0,0,0'
+    const fillColor = isDark ? '#FFFFFF' : (bi.color || '#000000')
+    return `<div style="width:88px;height:88px;background:rgba(${overlay},0.06);border-radius:20px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:28px;box-shadow:0 0 0 1px rgba(${overlay},0.08)"><svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 24 24" fill="${fillColor}"><path d="${bi.path}"/></svg></div>`
+  }
+  // Object format with { slug, svg, color }
   if (typeof brandIcon === 'object' && brandIcon.svg) {
     const isDark = brand?.mode !== 'light'
     const overlay = isDark ? '255,255,255' : '0,0,0'
     return `<div style="width:88px;height:88px;background:rgba(${overlay},0.06);border-radius:20px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:28px;box-shadow:0 0 0 1px rgba(${overlay},0.08)"><img src="${brandIcon.svg}" width="60" height="60" style="object-fit:contain" /></div>`
   }
   return ''
+}
+
+/* ── Inline brand icon (smaller, for use within cards/lists) ── */
+function inlineBrandIconHTML(slug, size, brand) {
+  if (!slug || !BRAND_ICONS[slug]) return ''
+  const bi = BRAND_ICONS[slug]
+  const isDark = brand?.mode !== 'light'
+  const fillColor = isDark ? '#FFFFFF' : (bi.color || '#000000')
+  const s = size || 32
+  const bg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'
+  const border = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'
+  return `<div style="width:${s + 16}px;height:${s + 16}px;background:${bg};border-radius:${Math.round(s * 0.3)}px;display:inline-flex;align-items:center;justify-content:center;border:1px solid ${border};flex-shrink:0"><svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 24 24" fill="${fillColor}"><path d="${bi.path}"/></svg></div>`
 }
 
 export function esc(s = '') {
@@ -538,6 +558,104 @@ function renderPricing(f, i, t, b, d) {
   `, '', i, t, b, f.bgOverride, d, f.bgStyle)
 }
 
+/* ── NEW: Tool Spotlight — showcases a tool/product with logo, features, and verdict ── */
+function renderToolSpotlight(f, i, t, b, d) {
+  const icon = f.brandIcon ? brandIconHTML(f.brandIcon, b) : ''
+  const features = (f.features || []).map(ft =>
+    `<li><span class="arr">→</span>${esc(ft)}</li>`
+  ).join('')
+  const priceTag = f.price ? `<div style="font-family:'${b.monoFont}',monospace;font-size:20px;font-weight:700;color:${b.accent};margin-top:16px;padding:8px 20px;background:${accentRGBA(b.accent, 0.08)};border:1px solid ${accentRGBA(b.accent, 0.25)};border-radius:8px;display:inline-block">${esc(f.price)}</div>` : ''
+  const verdict = f.verdict ? `<div style="margin-top:20px;font-size:22px;font-weight:600;color:${b.text};opacity:0.9">${esc(f.verdict)}</div>` : ''
+  return wrap(`
+    <div style="display:flex;align-items:center;gap:20px;margin-bottom:24px">
+      ${icon}
+      <div>
+        <h1 class="sm" style="margin-bottom:4px">${esc(f.title)}</h1>
+        ${f.subtitle ? `<div style="font-size:20px;color:${b.text2};font-weight:500">${esc(f.subtitle)}</div>` : ''}
+      </div>
+    </div>
+    <div class="card al">
+      ${f.cardTitle ? `<div class="card-label">${esc(f.cardTitle)}</div>` : ''}
+      <ul class="list">${features}</ul>
+      ${priceTag}
+    </div>
+    ${verdict}
+    ${decoIconHTML(f.icon, f.iconPos, f.iconOpacity, b.accent)}
+    ${customImagesHTML(f.images)}
+  `, '', i, t, b, f.bgOverride, d, f.bgStyle)
+}
+
+/* ── NEW: Stat Dashboard — 2-4 stat cards in a grid ── */
+function renderStatDashboard(f, i, t, b, d) {
+  const stats = (f.stats || []).map(stat => {
+    const trend = stat.trend === 'up' ? `<span style="color:#22C55E;font-size:16px;font-weight:700">↑ ${esc(stat.delta || '')}</span>`
+      : stat.trend === 'down' ? `<span style="color:#EF4444;font-size:16px;font-weight:700">↓ ${esc(stat.delta || '')}</span>`
+      : ''
+    return `<div style="flex:1;min-width:180px;border-radius:16px;padding:28px 24px;background:${b.mode === 'dark' ? 'linear-gradient(160deg, rgba(24,24,24,0.85) 0%, rgba(17,17,17,0.9) 100%)' : 'linear-gradient(160deg, rgba(255,255,255,0.85) 0%, rgba(245,245,245,0.9) 100%)'};backdrop-filter:blur(16px);border:1px solid ${b.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'};box-shadow:0 4px 24px rgba(0,0,0,${b.mode === 'dark' ? '0.4' : '0.08'})">
+      <div style="font-family:'${b.monoFont}',monospace;font-size:13px;font-weight:700;color:${b.text2};text-transform:uppercase;letter-spacing:0.12em;margin-bottom:12px">${esc(stat.label)}</div>
+      <div style="font-family:'${b.monoFont}',monospace;font-size:48px;font-weight:900;color:${b.accent};line-height:1;text-shadow:0 0 30px ${accentRGBA(b.accent, 0.3)}">${esc(stat.value)}</div>
+      ${trend ? `<div style="margin-top:8px">${trend}</div>` : ''}
+      ${stat.sublabel ? `<div style="font-size:16px;color:${b.muted};margin-top:4px">${esc(stat.sublabel)}</div>` : ''}
+    </div>`
+  }).join('')
+  const cols = (f.stats || []).length <= 2 ? 2 : 2
+  return wrap(`
+    ${f.title ? `<h1 class="sm" style="margin-bottom:28px">${esc(f.title)}</h1>` : ''}
+    <div style="display:flex;flex-wrap:wrap;gap:20px">${stats}</div>
+    ${f.footnote ? `<div style="margin-top:24px;font-size:18px;color:${b.muted};font-style:italic">${esc(f.footnote)}</div>` : ''}
+    ${decoIconHTML(f.icon, f.iconPos, f.iconOpacity, b.accent)}
+    ${customImagesHTML(f.images)}
+  `, '', i, t, b, f.bgOverride, d, f.bgStyle)
+}
+
+/* ── NEW: Icon Grid — grid of items with icons/brand logos ── */
+function renderIconGrid(f, i, t, b, d) {
+  const items = (f.items || []).map(item => {
+    const iconEl = item.brandIcon && BRAND_ICONS[item.brandIcon]
+      ? inlineBrandIconHTML(item.brandIcon, 36, b)
+      : item.icon && ICONS[item.icon]
+        ? `<div style="width:52px;height:52px;background:${accentRGBA(b.accent, 0.08)};border-radius:14px;display:inline-flex;align-items:center;justify-content:center;border:1px solid ${accentRGBA(b.accent, 0.15)};flex-shrink:0"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="${b.accent}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[item.icon]}</svg></div>`
+        : ''
+    return `<div style="flex:1;min-width:${(f.items || []).length <= 3 ? '250' : '200'}px;display:flex;gap:16px;align-items:flex-start;padding:20px;border-radius:14px;background:${b.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'};border:1px solid ${b.mode === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'}">
+      ${iconEl}
+      <div>
+        <div style="font-size:22px;font-weight:700;color:${b.text};margin-bottom:4px">${esc(item.title)}</div>
+        ${item.description ? `<div style="font-size:17px;color:${b.text2};line-height:1.4">${esc(item.description)}</div>` : ''}
+      </div>
+    </div>`
+  }).join('')
+  return wrap(`
+    ${f.title ? `<h1 class="sm" style="margin-bottom:28px">${esc(f.title)}</h1>` : ''}
+    <div style="display:flex;flex-wrap:wrap;gap:16px">${items}</div>
+    ${decoIconHTML(f.icon, f.iconPos, f.iconOpacity, b.accent)}
+    ${customImagesHTML(f.images)}
+  `, '', i, t, b, f.bgOverride, d, f.bgStyle)
+}
+
+/* ── NEW: Process Flow — horizontal/vertical step process with connectors ── */
+function renderProcessFlow(f, i, t, b, d) {
+  const steps = (f.steps || []).map((step, idx) => {
+    const iconEl = step.icon && ICONS[step.icon]
+      ? `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${b.accent}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[step.icon]}</svg>`
+      : `<span style="font-family:'${b.monoFont}',monospace;font-size:16px;font-weight:800;color:${b.accent}">${idx + 1}</span>`
+    const connector = idx < (f.steps || []).length - 1
+      ? `<div style="width:100%;height:3px;background:linear-gradient(90deg, ${b.accent}, ${accentRGBA(b.accent, 0.2)});border-radius:2px;margin:0 -8px"></div>`
+      : ''
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px;position:relative">
+      <div style="width:56px;height:56px;border-radius:50%;background:${accentRGBA(b.accent, 0.1)};border:2px solid ${accentRGBA(b.accent, 0.3)};display:flex;align-items:center;justify-content:center;box-shadow:0 0 20px ${accentRGBA(b.accent, 0.15)};z-index:1">${iconEl}</div>
+      <div style="font-size:20px;font-weight:700;color:${b.text}">${esc(step.title)}</div>
+      ${step.description ? `<div style="font-size:16px;color:${b.text2};line-height:1.3">${esc(step.description)}</div>` : ''}
+    </div>`
+  }).join(`<div style="display:flex;align-items:center;padding-top:0;margin-top:28px;flex-shrink:0"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="${b.accent}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/></svg></div>`)
+  return wrap(`
+    ${f.title ? `<h1 class="sm" style="margin-bottom:36px">${esc(f.title)}</h1>` : ''}
+    <div style="display:flex;align-items:flex-start;gap:8px;justify-content:center">${steps}</div>
+    ${f.footnote ? `<div style="margin-top:28px;font-size:18px;color:${b.muted}">${esc(f.footnote)}</div>` : ''}
+    ${decoIconHTML(f.icon, f.iconPos, f.iconOpacity, b.accent)}
+    ${customImagesHTML(f.images)}
+  `, '', i, t, b, f.bgOverride, d, f.bgStyle)
+}
+
 export function renderSlideHTML(slide, idx, total, brand, dims) {
   const f = slide.fields
   switch (slide.type) {
@@ -549,7 +667,11 @@ export function renderSlideHTML(slide, idx, total, brand, dims) {
     case 'cta':         return renderCTA(f, idx, total, brand, dims)
     case 'quote':       return renderQuote(f, idx, total, brand, dims)
     case 'timeline':    return renderTimeline(f, idx, total, brand, dims)
-    case 'pricing':     return renderPricing(f, idx, total, brand, dims)
-    default:            return '<html><body></body></html>'
+    case 'pricing':       return renderPricing(f, idx, total, brand, dims)
+    case 'toolSpotlight': return renderToolSpotlight(f, idx, total, brand, dims)
+    case 'statDashboard': return renderStatDashboard(f, idx, total, brand, dims)
+    case 'iconGrid':      return renderIconGrid(f, idx, total, brand, dims)
+    case 'processFlow':   return renderProcessFlow(f, idx, total, brand, dims)
+    default:              return '<html><body></body></html>'
   }
 }

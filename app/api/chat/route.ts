@@ -54,29 +54,51 @@ export interface AgentStep {
   detail?: string
 }
 
+// Sanitize brand kit fields to prevent prompt injection
+function sanitizeBrandField(value: string, maxLength = 100): string {
+  if (!value || typeof value !== 'string') return ''
+  // Strip newlines, control chars, and instruction-like patterns
+  return value
+    .replace(/[\n\r\t]/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .slice(0, maxLength)
+    .trim()
+}
+
 export async function POST(req: Request) {
   try {
     const { message, history: clientHistory, brandKit, images } = await req.json()
     const agentSteps: AgentStep[] = []
     const stepMetrics: StepMetrics[] = []
 
-    // Register custom brand if provided
+    // Register custom brand if provided (with sanitized fields)
     if (brandKit) {
-      registerCustomBrand(brandKit)
+      registerCustomBrand({
+        ...brandKit,
+        name: sanitizeBrandField(brandKit.name, 50),
+        handle: sanitizeBrandField(brandKit.handle, 50),
+      })
+      // Register brand logo as a globally available image for slides
+      if (brandKit.logoDataUrl) {
+        ;(globalThis as any).__carouselImages = {
+          ...(globalThis as any).__carouselImages,
+          brand_logo: brandKit.logoDataUrl,
+        }
+      }
     }
 
-    // Build system prompt with brand context
+    // Build system prompt with sanitized brand context
     const systemPrompt = brandKit
       ? buildSystemPrompt({
-          name: brandKit.name,
-          handle: brandKit.handle,
-          description: brandKit.description || '',
-          accentColor: brandKit.accentColor,
-          mode: brandKit.mode,
-          titleFont: brandKit.titleFont,
-          bodyFont: brandKit.bodyFont,
-          tone: brandKit.tone,
-          cta: brandKit.cta,
+          name: sanitizeBrandField(brandKit.name, 50),
+          handle: sanitizeBrandField(brandKit.handle, 50),
+          description: sanitizeBrandField(brandKit.description || '', 200),
+          accentColor: sanitizeBrandField(brandKit.accentColor, 7),
+          mode: brandKit.mode === 'light' ? 'light' : 'dark',
+          titleFont: sanitizeBrandField(brandKit.titleFont, 40),
+          bodyFont: sanitizeBrandField(brandKit.bodyFont, 40),
+          tone: sanitizeBrandField(brandKit.tone, 30),
+          cta: sanitizeBrandField(brandKit.cta, 100),
           hasLogo: !!brandKit.logoDataUrl,
         })
       : buildSystemPrompt()
@@ -109,7 +131,7 @@ export async function POST(req: Request) {
       ;(globalThis as any).__carouselImages = { ...(globalThis as any).__carouselImages, ...imageStore }
 
       const imageContext = images.map((img: any) =>
-        `[Imagen adjunta: "${img.name}" (ID: ${img.id}). Para usar en un slide, agrega al campo images: [{ "src": "USE_IMAGE_${img.id}", "x": 440, "y": 100, "width": 200, "height": 200, "opacity": 20, "layer": "back" }]. Ajusta posicion, tamano y opacidad segun lo que pida el usuario.]`
+        `[Imagen adjunta: "${img.name}" (ID: ${img.id}). Para usar en un slide, agrega al campo images: [{ "src": "USE_IMAGE_${img.id}", "x": 440, "y": 100, "width": 200, "height": 200, "layer": "back" }]. Ajusta posicion y tamano segun lo que pida el usuario.]`
       ).join('\n')
       messages.push({ role: 'user', content: `${message}\n\n${imageContext}` })
     } else {
@@ -119,7 +141,8 @@ export async function POST(req: Request) {
     // Fix any corrupted history (orphaned tool_use without tool_result)
     const compressedHistory = sanitizeHistory(messages)
 
-    console.log(`[agent] Model: ${route.model} | Tools: ${sent}/${total} | User: ${message.slice(0, 80)}`)
+    // Model routing logged server-side only in dev
+    if (process.env.NODE_ENV === 'development') console.log(`[agent] Model: ${route.model} | Tools: ${sent}/${total}`)
 
     const allToolResults: any[] = []
 
@@ -143,7 +166,7 @@ export async function POST(req: Request) {
 
     // ── Agentic loop ──
     for (let step = 0; step < 10; step++) {
-      console.log(`[agent] Step ${step + 1}, messages: ${compressedHistory.length}`)
+      if (process.env.NODE_ENV === 'development') console.log(`[agent] Step ${step + 1}, messages: ${compressedHistory.length}`)
 
       const response = await client.messages.create({
         model: route.model,
@@ -177,9 +200,7 @@ export async function POST(req: Request) {
         })
       }
 
-      console.log(
-        `[agent] Step ${step + 1}: tokens in=${usage?.input_tokens} out=${usage?.output_tokens} cache_read=${cacheRead} cache_write=${usage?.cache_creation_input_tokens || 0} cost=$${metrics.costUSD.toFixed(4)}`,
-      )
+      if (process.env.NODE_ENV === 'development') console.log(`[agent] Step ${step + 1}: in=${usage?.input_tokens} out=${usage?.output_tokens} cost=$${metrics.costUSD.toFixed(4)}`)
 
       // Add assistant response to conversation history
       const assistantContent = response.content
@@ -190,12 +211,15 @@ export async function POST(req: Request) {
 
       // If no tool calls, we're done
       if (toolUseBlocks.length === 0) {
+        // Strip markdown formatting (asterisks, bold, headers) from response
         const finalText = textBlocks.map((b: any) => b.text).join('\n')
+          .replace(/\*\*([^*]+)\*\*/g, '$1')  // **bold** → bold
+          .replace(/\*([^*]+)\*/g, '$1')       // *italic* → italic
+          .replace(/^#{1,6}\s+/gm, '')         // ### headers → text
+          .replace(/^[-•]\s+/gm, '- ')         // normalize bullets
         agentSteps.push({ type: 'done', label: 'Respuesta generada' })
         const sessionMetrics = aggregateMetrics(stepMetrics)
-        console.log(
-          `[agent] Done. Cost: $${sessionMetrics.totalCostUSD.toFixed(4)} (sin optimizaciones: $${sessionMetrics.totalCostWithoutOptimizationsUSD.toFixed(4)}, ahorro: ${sessionMetrics.savingsPercent.toFixed(1)}%)`,
-        )
+        if (process.env.NODE_ENV === 'development') console.log(`[agent] Done. Cost: $${sessionMetrics.totalCostUSD.toFixed(4)}`)
         return Response.json({ text: finalText, toolResults: allToolResults, agentSteps, metrics: sessionMetrics })
       }
 
@@ -207,7 +231,7 @@ export async function POST(req: Request) {
           label: `Tool: ${toolUse.name}`,
           detail: JSON.stringify(toolUse.input).slice(0, 100),
         })
-        console.log(`[agent] Calling tool: ${toolUse.name}`)
+        if (process.env.NODE_ENV === 'development') console.log(`[agent] Tool: ${toolUse.name}`)
         const result = await executeToolCall(toolUse.name, toolUse.input)
         allToolResults.push({ toolName: toolUse.name, result })
 
@@ -239,8 +263,7 @@ export async function POST(req: Request) {
       metrics: sessionMetrics,
     })
   } catch (err: any) {
-    console.error('[agent] ERROR:', err.message)
-    console.error('[agent] Full error:', JSON.stringify(err, null, 2).slice(0, 500))
+    if (process.env.NODE_ENV === 'development') console.error('[agent] ERROR:', err.message)
     return Response.json({ error: err.message || 'Error desconocido' }, { status: 500 })
   }
 }

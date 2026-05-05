@@ -143,3 +143,62 @@ export function deriveColors(primaryHex, mode = 'dark') {
 export function makeBrand(overrides = {}) {
   return { ...BRAND_SHAPE, id: brandUid(), ...overrides }
 }
+
+/* ── Progressive Color Storytelling ──
+ * Generates a palette of N accent tones that create visual momentum across slides.
+ * Slide 1 (hook): highest intensity
+ * Middle slides: subtle variations
+ * Last slide (CTA): full intensity return
+ */
+export function generateColorStory(accentHex, slideCount, mode = 'dark') {
+  const [h, s, l] = hexToHsl(accentHex)
+  const palette = []
+
+  for (let i = 0; i < slideCount; i++) {
+    const progress = slideCount <= 1 ? 1 : i / (slideCount - 1)
+
+    // First and last slides get full accent intensity
+    if (i === 0 || i === slideCount - 1) {
+      palette.push({
+        accent: accentHex,
+        glowIntensity: 1.0,
+        bgShift: 0,
+      })
+      continue
+    }
+
+    // Middle slides get subtle variations for rhythm
+    // Create a wave pattern: slight hue shift + saturation variation
+    const wave = Math.sin(progress * Math.PI) // peaks in the middle
+    const hueShift = Math.round(wave * 8) // subtle ±8 degree shift
+    const satShift = Math.round(wave * -5) // slightly desaturated in middle
+    const lightShift = Math.round(wave * 4) // slightly lighter in middle
+
+    const newH = (h + hueShift + 360) % 360
+    const newS = Math.max(0, Math.min(100, s + satShift))
+    const newL = Math.max(0, Math.min(100, l + lightShift))
+
+    palette.push({
+      accent: hslToHex(newH, newS, newL),
+      glowIntensity: 0.7 + (0.3 * (1 - wave)), // less glow in middle
+      bgShift: Math.round(wave * 2), // subtle bg warmth shift
+    })
+  }
+
+  return palette
+}
+
+/* ── Complementary accent palette ──
+ * Generates 3 complementary colors for multi-color slides (iconGrid, statDashboard)
+ */
+export function generateAccentPalette(accentHex) {
+  const [h, s, l] = hexToHsl(accentHex)
+  return {
+    primary: accentHex,
+    secondary: hslToHex((h + 30) % 360, Math.max(s - 10, 20), l),
+    tertiary: hslToHex((h + 210) % 360, Math.max(s - 15, 20), Math.min(l + 5, 80)),
+    success: hslToHex(142, 70, 45), // green
+    warning: hslToHex(38, 92, 50),  // amber
+    error: hslToHex(0, 84, 60),     // red
+  }
+}

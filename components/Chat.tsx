@@ -135,7 +135,7 @@ function DownloadButton({ name, htmlSlides }: { name: string; htmlSlides: string
       a.click()
       URL.revokeObjectURL(url)
     } catch (err) {
-      console.error('Export error:', err)
+      // Export failed silently — user sees loading stop
     }
     setDownloading(false)
     setProgress('')
@@ -253,7 +253,7 @@ function DownloadButton({ name, htmlSlides }: { name: string; htmlSlides: string
                 }
                 const slug = (name || 'carrusel').toLowerCase().replace(/[^a-z0-9]+/g, '-')
                 pdf.save(`${slug}-linkedin.pdf`)
-              } catch (err) { console.error('PDF export error:', err) }
+              } catch { /* PDF export failed */ }
               setDownloading(false); setProgress('')
             }}
             disabled={downloading}
@@ -792,6 +792,199 @@ const CAPABILITIES = [
   },
 ]
 
+const ONBOARDING_KEY = 'carousel_agent_onboarding_done'
+
+const ONBOARDING_STEPS = [
+  {
+    icon: '<path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/>',
+    color: 'var(--accent)',
+    title: 'Bienvenido a Carousel Agent',
+    subtitle: 'Tu agente de IA para crear carruseles premium',
+    body: 'Describile al agente que carrusel quieres y el se encarga de todo: estructura, copy, diseno y export. Solo escribe en el chat como si hablaras con un disenador.',
+    example: '"Crea un carrusel de 7 slides sobre por que toda startup necesita automatizar su marketing"',
+  },
+  {
+    icon: '<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>',
+    color: '#3B82F6',
+    title: 'Agrega tu logo e imagenes',
+    subtitle: 'Arrastra cualquier imagen directamente al chat',
+    body: 'El agente la inserta en tus slides. Puedes decirle exactamente donde ponerla y en que tamano. Las imagenes se renderizan al 100% de calidad, sin transparencias.',
+    example: '"Pon mi logo en la esquina inferior derecha de todos los slides, tamano 180x180"',
+  },
+  {
+    icon: '<path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/>',
+    color: '#A78BFA',
+    title: '30+ logos de empresas reales',
+    subtitle: 'Solo menciona una empresa y su logo aparece automaticamente',
+    body: 'El agente reconoce +30 marcas tech y las renderiza con su logo oficial SVG: OpenAI, Anthropic, Supabase, Stripe, Shopify, Slack, Notion, Vercel, GitHub, Figma, AWS, React, Next.js, Docker, Firebase, y muchas mas.',
+    example: '"Haz un carrusel comparando las 5 mejores herramientas para construir un SaaS: Supabase, Vercel, Stripe, OpenAI y Resend"',
+  },
+  {
+    icon: '<rect width="8" height="8" x="3" y="3" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect width="8" height="8" x="13" y="13" rx="2"/>',
+    color: '#22C55E',
+    title: '13 tipos de slide premium',
+    subtitle: 'El agente elige el mejor layout, o tu puedes pedirlo',
+    body: 'Tipos disponibles: hook, content, bigNumber, list, beforeAfter, quote, timeline, pricing, toolSpotlight (showcase de herramienta con logo), statDashboard (metricas con trends), iconGrid (grid con logos), processFlow (pasos con conectores), y CTA.',
+    example: '"Usa un toolSpotlight para cada herramienta con su logo, y un statDashboard con metricas de crecimiento"',
+  },
+  {
+    icon: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+    color: '#F59E0B',
+    title: 'Export multi-plataforma',
+    subtitle: 'Un carrusel, todos los formatos',
+    body: 'Exporta en PNG (Instagram 1080x1350), PDF (LinkedIn 1200x1200), ZIP con todos los slides, o multi-formato para TikTok, Reels y Twitter/X. Todo en alta resolucion retina (2x).',
+    example: '"Exporta este carrusel en formato LinkedIn y tambien en Instagram"',
+  },
+]
+
+function OnboardingWalkthrough({ onComplete }: { onComplete: () => void }) {
+  const [step, setStep] = useState(0)
+  const current = ONBOARDING_STEPS[step]
+  const isLast = step === ONBOARDING_STEPS.length - 1
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+    }}>
+      <div className="animate-fade-in" style={{
+        width: '100%', maxWidth: 520, margin: '0 20px',
+        borderRadius: 'var(--radius-xl)', overflow: 'hidden',
+        background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+        boxShadow: '0 24px 80px rgba(0,0,0,0.6), 0 0 60px rgba(255,72,0,0.08)',
+      }}>
+        {/* Progress bar */}
+        <div style={{ height: 3, background: 'var(--bg-tertiary)' }}>
+          <div style={{
+            height: '100%', borderRadius: 2,
+            background: `linear-gradient(90deg, ${current.color}, var(--accent))`,
+            width: `${((step + 1) / ONBOARDING_STEPS.length) * 100}%`,
+            transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+          }} />
+        </div>
+
+        {/* Content */}
+        <div key={step} className="animate-fade-in" style={{ padding: '40px 36px 32px' }}>
+          {/* Icon */}
+          <div style={{
+            width: 64, height: 64, borderRadius: 18, marginBottom: 24,
+            background: `${current.color}12`, border: `1.5px solid ${current.color}30`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: `0 0 40px ${current.color}15`,
+          }}>
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke={current.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              dangerouslySetInnerHTML={{ __html: current.icon }} />
+          </div>
+
+          {/* Step counter */}
+          <div style={{
+            fontSize: 11, fontWeight: 700, color: current.color, marginBottom: 8,
+            fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.1em',
+          }}>
+            Paso {step + 1} de {ONBOARDING_STEPS.length}
+          </div>
+
+          {/* Title */}
+          <h2 style={{
+            fontSize: 24, fontWeight: 800, color: 'var(--text-primary)',
+            lineHeight: 1.2, marginBottom: 6, letterSpacing: '-0.02em',
+          }}>
+            {current.title}
+          </h2>
+
+          {/* Subtitle */}
+          <div style={{ fontSize: 14, fontWeight: 500, color: current.color, marginBottom: 16, opacity: 0.9 }}>
+            {current.subtitle}
+          </div>
+
+          {/* Body */}
+          <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 20 }}>
+            {current.body}
+          </p>
+
+          {/* Example prompt */}
+          <div style={{
+            padding: '12px 16px', borderRadius: 10,
+            background: 'var(--bg-card)', border: '1px solid var(--border)',
+            marginBottom: 8,
+          }}>
+            <div style={{
+              fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', marginBottom: 6,
+              fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.08em',
+            }}>
+              Ejemplo de prompt
+            </div>
+            <div style={{
+              fontSize: 13, color: current.color, lineHeight: 1.5,
+              fontFamily: "'JetBrains Mono', monospace", fontWeight: 500,
+            }}>
+              {current.example}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer with buttons */}
+        <div style={{
+          padding: '0 36px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          {/* Dots */}
+          <div style={{ display: 'flex', gap: 6 }}>
+            {ONBOARDING_STEPS.map((_, i) => (
+              <div key={i} style={{
+                width: i === step ? 24 : 8, height: 8, borderRadius: 4,
+                background: i === step ? current.color : 'var(--border)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                cursor: 'pointer',
+              }} onClick={() => setStep(i)} />
+            ))}
+          </div>
+
+          {/* Buttons */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            {step > 0 && (
+              <button
+                onClick={() => setStep(s => s - 1)}
+                style={{
+                  padding: '10px 20px', borderRadius: 10,
+                  background: 'transparent', border: '1px solid var(--border)',
+                  color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-hover)'; e.currentTarget.style.color = 'var(--text-secondary)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)' }}
+              >
+                Atras
+              </button>
+            )}
+            <button
+              onClick={() => {
+                if (isLast) {
+                  localStorage.setItem(ONBOARDING_KEY, 'true')
+                  onComplete()
+                } else {
+                  setStep(s => s + 1)
+                }
+              }}
+              style={{
+                padding: '10px 28px', borderRadius: 10,
+                background: `linear-gradient(135deg, ${current.color}, var(--accent))`,
+                border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                boxShadow: `0 4px 20px ${current.color}40`,
+                transition: 'all 0.15s', transform: 'scale(1)',
+              }}
+              onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.03)'}
+              onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              {isLast ? 'Empezar a crear' : 'Siguiente'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function EmptyState({ brandKit, onSuggestionClick }: { brandKit: BrandKit | null; onSuggestionClick: (s: string) => void }) {
   const brandName = brandKit?.name || 'tu marca'
 
@@ -807,7 +1000,11 @@ function EmptyState({ brandKit, onSuggestionClick }: { brandKit: BrandKit | null
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         boxShadow: '0 0 40px rgba(255, 72, 0, 0.2)',
       }}>
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 18, fontWeight: 700, color: '#fff' }}>CA</span>
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" />
+          <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12" />
+          <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17" />
+        </svg>
       </div>
 
       <div style={{ textAlign: 'center', maxWidth: 480 }}>
@@ -815,7 +1012,7 @@ function EmptyState({ brandKit, onSuggestionClick }: { brandKit: BrandKit | null
           {brandKit ? `Hola, ${brandKit.name}` : 'Carousel Agent'}
         </div>
         <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-          Agente de IA para crear carruseles de Instagram con copy de alta conversion.
+          Describe el carrusel que quieres crear y el agente se encarga de todo.
         </div>
       </div>
 
@@ -918,6 +1115,10 @@ export function Chat({ brandKit, conversationId, initialMessages, onMessagesChan
   const [viewer, setViewer] = useState<{ slides: string[]; index: number; name: string } | null>(null)
   const [attachedImages, setAttachedImages] = useState<{ id: string; name: string; dataUrl: string }[]>([])
   const [dragOver, setDragOver] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return !localStorage.getItem(ONBOARDING_KEY)
+  })
   const [cumulative, setCumulative] = useState<CumulativeMetrics>({
     totalInputTokens: 0, totalOutputTokens: 0, totalCacheReadTokens: 0,
     totalCostUSD: 0, totalCostWithoutOptimizationsUSD: 0, savingsPercent: 0, requestCount: 0,
@@ -1108,6 +1309,8 @@ export function Chat({ brandKit, conversationId, initialMessages, onMessagesChan
         transition: 'border-color 0.15s',
       }}
     >
+      {/* Onboarding walkthrough modal */}
+      {showOnboarding && <OnboardingWalkthrough onComplete={() => setShowOnboarding(false)} />}
       {/* Messages area */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '24px 0' }}>
         {messages.length === 0 ? (
